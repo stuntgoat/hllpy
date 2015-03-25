@@ -36,7 +36,7 @@ def _get_alpha(bits):
     """
     bits = int(bits)
     if bits < 4:
-        raise Exception("value needs to be > 4" % bits)
+        raise Exception("value needs to be >= 4" % bits)
 
     if bits == 4:
         return 0.673
@@ -53,7 +53,7 @@ def _get_alpha(bits):
 class HLL(object):
     def __init__(self, bits):
         bits = int(bits)
-        assert bits > 4, 'HLL instance bucket count exponent > 4'
+        assert bits >= 4, 'HLL instance bucket count exponent >= 4'
 
         # Bits of precision
         self._bits = bits
