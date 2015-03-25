@@ -1,3 +1,4 @@
+import heapq
 from hashlib import sha1
 from math import log
 
@@ -80,6 +81,7 @@ class HLL(object):
         _hash = long(sha1(value).hexdigest(), 16)
         bucket = self.get_bucket(_hash)
         self.buckets[bucket] = max(self.get_bits(_hash), self.buckets[bucket])
+        return _hash
 
     def _validate(self, hll):
         """
@@ -133,6 +135,79 @@ class HLL(object):
         if not num_zeros:
             return self._estimate(maximum)
         return self._zeros_estimate(num_zeros, maximum)
+
+
+class MinIntMaxHeap(object):
+    """
+    Keep a constant size set of the minimum values
+    added, using a max heap.
+
+    """
+    def __init__(self, size):  # -1 == no limit?
+        # Max size.
+        self.size = size
+
+        # We're going to invert each value to create a 'max heap'
+        self.heap = []
+
+        # NOTE: values are inverted so this is the smallest negative value
+        # in the heap.
+        self.largest = None
+
+    def add(self, num):
+        """
+        We're going to invert each value to create a 'max heap'
+
+        """
+        val = -num
+        if self.largest is None:
+            heapq.heappush(self.heap, val)
+            self.largest = val
+            return
+
+        # If this inverted value is larger
+        # than the largest, it's actually the smallest we've seen so far.
+        replace = val > self.largest
+        if not replace:
+            add = len(self.heap) < self.size
+            if add:
+                heapq.heappush(self.heap, val)
+            return
+
+        evict = len(self.heap) == self.size
+        if evict:
+            heapq.heappushpop(self.heap, val)
+        else:
+            heapq.heappush(self.heap, val)
+
+        self.largest = val
+
+    def as_set(self):
+        return set(map(lambda x: -x, self.heap))
+
+
+class HLLMinHash(HLL):
+    def __init__(self, bits, k):
+        super(HLLMinHash, self).__init__(bits)
+        # Keep k hashes.
+        self.min_set = MinIntMaxHeap(k)
+        self.k = k
+
+    def _min_hash(self, value):
+        self.min_set.add(value)
+
+    def add(self, value):
+        _hash = super(HLLMinHash, self).add(value)
+        self._min_hash(_hash)
+
+    def _validate(self, hll):
+        # TODO: - fix
+        return True
+
+    def intersect(self, hll):
+        intersection = len(hll.min_set.as_set().intersection(self.min_set.as_set()))
+        jac_idx = max(intersection / float(self.k), 1e-7)
+        return jac_idx * self.union(hll)
 
 
 __all__ = ['HLL']

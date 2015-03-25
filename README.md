@@ -32,4 +32,7 @@ References:
 
 -------------------------------------------------------------------
 
-    TODO: intersections with minhash
+
+    TODO:
+    - intersections with minhash
+    - implement ++ with the Google constants.
