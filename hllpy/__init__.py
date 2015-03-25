@@ -96,7 +96,7 @@ class HLL(object):
 
     def _estimate(self, buckets):
         numerator = self.alpha * (self.num_buckets ** 2)
-        return numerator / sum(pow(2.0, -x) for x in buckets)
+        return int(numerator / sum(pow(2.0, -x) for x in buckets))
 
     def _zeros_estimate(self, num_zeros, buckets):
         E = self.num_buckets * log(self.num_buckets / float(num_zeros))
@@ -104,7 +104,7 @@ class HLL(object):
             # TODO: Correct bias
             print 'not correcting bias yet'
 
-        return E
+        return int(E)
 
     def estimate(self):
         """
