@@ -149,10 +149,11 @@ class MinIntMaxHeap(object):
 
         # We're going to invert each value to create a 'max heap'
         self.heap = []
+        self._exist = set()
 
-        # NOTE: values are inverted so this is the smallest negative value
-        # in the heap.
-        self.largest = None
+    @property
+    def smallest(self):
+        return self.heap[0] if self.heap else None
 
     def add(self, num):
         """
@@ -160,27 +161,27 @@ class MinIntMaxHeap(object):
 
         """
         val = -num
-        if self.largest is None:
+        if val in self._exist:
+            return
+
+        if self.smallest is None:
             heapq.heappush(self.heap, val)
-            self.largest = val
+            self._exist.add(val)
             return
 
-        # If this inverted value is larger
-        # than the largest, it's actually the smallest we've seen so far.
-        replace = val > self.largest
-        if not replace:
-            add = len(self.heap) < self.size
-            if add:
-                heapq.heappush(self.heap, val)
-            return
-
+        # This determines if we'll do pushpop or push.
         evict = len(self.heap) == self.size
-        if evict:
-            heapq.heappushpop(self.heap, val)
-        else:
+        if not evict:
             heapq.heappush(self.heap, val)
+            self._exist.add(val)
+            return
 
-        self.largest = val
+        # We need to evict, so is this the largest we've seen so far?
+        replace = val > self.smallest
+        if replace:
+            old = heapq.heappushpop(self.heap, val)
+            self._exist.remove(old)
+            self._exist.add(val)
 
     def as_set(self):
         return set(map(lambda x: -x, self.heap))
@@ -206,7 +207,8 @@ class HLLMinHash(HLL):
 
     def intersect(self, hll):
         intersection = len(hll.min_set.as_set().intersection(self.min_set.as_set()))
-        jac_idx = max(intersection / float(self.k), 1e-7)
+        jac_idx = max(intersection / float(self.k * 2), 1e-7)
+        print jac_idx
         return jac_idx * self.union(hll)
 
 
