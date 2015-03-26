@@ -208,7 +208,6 @@ class HLLMinHash(HLL):
     def intersect(self, hll):
         intersection = len(hll.min_set.as_set().intersection(self.min_set.as_set()))
         jac_idx = max(intersection / float(self.k * 2), 1e-7)
-        print jac_idx
         return jac_idx * self.union(hll)
 
 
