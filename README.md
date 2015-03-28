@@ -34,5 +34,4 @@ References:
 
 
     TODO:
-    - intersections with minhash
-    - implement ++ with the Google constants.
+    - better intersections?
