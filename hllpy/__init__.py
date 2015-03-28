@@ -1,6 +1,31 @@
+import cPickle
 import heapq
+from bisect import bisect_left
+
 from hashlib import sha1
 from math import log
+
+from hllpy.bias import RAW_ESTIMATE, BIAS
+
+
+# See http://goo.gl/iU8Ig for values.
+THRESHOLD = {
+    4: 10,
+    5: 20,
+    6: 40,
+    7: 80,
+    8: 220,
+    9: 400,
+    10: 900,
+    11: 1800,
+    12: 3100,
+    13: 6500,
+    14: 11500,
+    15: 20000,
+    16: 50000,
+    17: 120000,
+    18: 350000
+}
 
 
 def get_bits(number, bits):
@@ -51,10 +76,26 @@ def _get_alpha(bits):
     return 0.7213 / (1.0 + 1.079 / (1 << bits))
 
 
+def estimate_bias(estimate, precision):
+    # Get the row corresponding to precision.
+    bias_indexes = RAW_ESTIMATE[precision - 4]
+
+    # Use that row to find the index of the bias.
+    idx = bisect_left(bias_indexes, estimate)
+    low, high = idx - 1, idx
+
+    # Return the bias range.
+    bias_indexes = BIAS[precision - 4]
+    low_bias, high_bias = bias_indexes[low], bias_indexes[high]
+
+    return (low_bias + high_bias) / 2.0
+
+
 class HLL(object):
     def __init__(self, bits):
         bits = int(bits)
-        assert bits >= 4, 'HLL instance bucket count exponent >= 4'
+        assert bits >= 4 and bits <= 18, 'HLL precision must be >= 4  and <= 18'
+        assert bits in THRESHOLD, 'precision not found in threshold values'
 
         # Bits of precision
         self._bits = bits
@@ -97,27 +138,37 @@ class HLL(object):
         return alpha and bits and bucket_size
 
     def _estimate(self, buckets):
+        """
+        Estimate with bias if needed.
+
+        """
         numerator = self.alpha * (self.num_buckets ** 2)
-        return int(numerator / sum(pow(2.0, -x) for x in buckets))
+        E = int(numerator / sum(pow(2.0, -x) for x in buckets))
+        if E <= 5 * self.num_buckets:
+            E_prime = E - estimate_bias(E, self._bits)
+        else:
+            E_prime = E
+
+        num_zeros = self.buckets.count(0)
+        if num_zeros:
+            H = self._zeros_estimate(num_zeros, buckets)
+        else:
+            H = E_prime
+
+        if H <= THRESHOLD[self._bits]:
+            return H
+        else:
+            return E_prime
 
     def _zeros_estimate(self, num_zeros, buckets):
-        E = self.num_buckets * log(self.num_buckets / float(num_zeros))
-        if E > 5 * self.num_buckets:
-            # TODO: Correct bias
-            print 'not correcting bias yet'
-
-        return int(E)
+        return self.num_buckets * log(self.num_buckets / float(num_zeros))
 
     def estimate(self):
         """
         Estimate the cardinality of values added.
 
         """
-        num_zeros = self.buckets.count(0)
-        if not num_zeros:
-            return self._estimate(self.buckets)
-
-        return self._zeros_estimate(num_zeros, self.buckets)
+        return self._estimate(self.buckets)
 
     def union(self, *hlls):
         """
@@ -189,6 +240,14 @@ class MinIntMaxHeap(object):
 
 class HLLMinHash(HLL):
     def __init__(self, bits, k):
+        """
+        Estimate intersections of HLLMinHash instances
+        using the union and a calulcated Jaccard Index
+        using MinHash intersections for each instance divided
+        the the sum of all 'k', where 'k' is the minimum
+        number of hashed values to keep per MinHash set.
+
+        """
         super(HLLMinHash, self).__init__(bits)
         # Keep k hashes.
         self.min_set = MinIntMaxHeap(k)
@@ -210,5 +269,9 @@ class HLLMinHash(HLL):
         jac_idx = max(intersection / float(self.k * 2), 1e-7)
         return jac_idx * self.union(hll)
 
+    def save(self, name):
+        with open(name + '.hll', 'wb') as f:
+            f.write(cPickle.dumps(self))
 
-__all__ = ['HLL']
+
+__all__ = ['HLL', 'HLLMinHash']
