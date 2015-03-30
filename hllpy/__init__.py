@@ -28,12 +28,12 @@ THRESHOLD = {
 }
 
 
-def get_bits(number, bits):
+def get_bits(number, precision):
     """
-    Count the leading 1 bits in the value 'h'
+    Count the leading 0 bits in the value 'number'
     args:
     - number: the value to check.
-    - bits: the bits to shift 'number' to the right
+    - precision: the bits to shift 'number' to the right
             before counting. These number of bits
             were used to create the HLL precision.
     """
@@ -43,8 +43,8 @@ def get_bits(number, bits):
     # we chop off the first 3 characters since
     # we know that the first 2 are '0b' and the
     # third is a '1'.
-    for bit in bin(number >> (bits - 1))[3:]:
-        if bit == '1':
+    for bit in bin(number >> (precision - 1))[3:]:
+        if bit == '0':
             c += 1
             continue
         break
