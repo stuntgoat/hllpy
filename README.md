@@ -17,7 +17,7 @@ Example:
     for i in xrange(UNIQUES):
         hll.add(str(i))
 
-    # Is the set size estimate less than smaller than 1% error?
+    # Is the set size estimate less than 1% error?
     assert abs(1 - (hll.estimate() / float(UNIQUES))) < .01
 
 References:
